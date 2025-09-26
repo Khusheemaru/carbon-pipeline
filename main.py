@@ -2,6 +2,7 @@
 import os
 import datetime
 import numpy as np
+import pandas as pd
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -103,7 +104,44 @@ def verify_landfill_gas_project(project_name, project_coords):
     print(f"Executing LANDFILL GAS verification for '{project_name}'. Logic would run here (e.g., methane satellite analysis).")
     return None
 
+def calculate_v1_risk_score(project: dict, stability_data: pd.DataFrame) -> int:
+    """
+    Calculates a V1 risk score based on political stability from the official World Bank CSV.
+    Lower score is better. Scale of 0-100.
+    """
+    score = 50  # Start with a baseline score
+    
+    try:
+        project_country = project['location_text'].split(',')[-1].strip()
+        
+        # 1. Find the column for the most recent year that has data.
+        # Get all columns that are years (e.g., '1960', '2022', etc.)
+        year_columns = [col for col in stability_data.columns if col.isdigit()]
+        latest_year_column = max(year_columns) # This will be e.g., "2024"
 
+        # 2. Look up the country's data using the correct column name 'Country Name'
+        country_row = stability_data[stability_data['Country Name'] == project_country]
+        
+        if not country_row.empty:
+            # 3. Extract the score from the latest year's column
+            stability_score_str = country_row.iloc[0][latest_year_column]
+            
+            # 4. Check if the score is a valid number (not empty)
+            if stability_score_str and stability_score_str != "..":
+                stability_score = float(stability_score_str)
+                # Scale the score from -2.5 -> +2.5 to our risk modifier
+                score -= (stability_score * 20)
+                print(f"Applying stability modifier for {project_country}: {(-stability_score * 20):.1f}")
+            else:
+                print(f"No recent stability data available for {project_country}.")
+        else:
+            print(f"Country '{project_country}' not found in stability data.")
+
+    except Exception as e:
+        print(f"Could not parse country or stability score. Error: {e}")
+
+    score = int(max(0, min(100, score))) # Ensure score is within bounds 0-100
+    return score
 
 # 4. MAIN ORCHESTRATION FUNCTION (from Step 3)
 def run_pipeline():
@@ -113,8 +151,12 @@ def run_pipeline():
     print("--- Starting Pipeline Run ---")
     
     try:
+
+        print("Loading political stability data...")
+        stability_df = pd.read_csv('E:\carbon-pipeline\API_PV.EST_DS2_en_csv_v2_1023320\political_stability.csv', skiprows=4)
+
         # 1. Fetch all projects, now including their type
-        response = supabase.table('projects').select('id, name, coordinates, type').execute()
+        response = supabase.table('projects').select('id, name, location_text, coordinates, type').execute()
         if not response.data:
             print("No projects found in the database.")
             return
@@ -134,6 +176,11 @@ def run_pipeline():
             project_name = project['name']
             project_coords = project['coordinates']
             project_type = project['type']
+
+            # calculate risk score for every project
+            new_risk_score = calculate_v1_risk_score(project, stability_df)
+            supabase.table('projects').update({'risk_score': new_risk_score}).eq('id', project['id']).execute()
+            print(f"Updated risk score for '{project_name}' to {new_risk_score}")
             
             if not project_coords or not project_type:
                 print(f"Skipping project '{project_name}' due to missing coordinates or type.")
@@ -157,6 +204,8 @@ def run_pipeline():
                 
             else:
                 print(f"No verification method defined for project type: {project_type}")
+
+            
 
         # 4. Insert any new records found (currently only for NDVI)
         if new_data_records:

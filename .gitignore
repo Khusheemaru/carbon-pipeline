@@ -1,0 +1,19 @@
+# General
+.DS_Store
+*.log
+
+# Python Backend
+/venv/
+__pycache__/
+*.pyc
+.env
+
+# React Frontend in the 'carbon-trust-ui' subfolder
+/carbon-trust-ui/node_modules
+/carbon-trust-ui/dist
+/carbon-trust-ui/dist-ssr
+/carbon-trust-ui/*.local
+
+# Editor-specific folders
+.vscode/
+.idea/
