@@ -1,0 +1,44 @@
+# Name of your automated workflow
+name: Daily Carbon Data Pipeline
+
+on:
+  # This allows you to run the workflow manually from the Actions tab for testing
+  workflow_dispatch:
+
+  # This schedules the workflow to run automatically
+  schedule:
+    # Runs at 02:00 UTC every day (which is 7:30 AM in India)
+    - cron: '0 2 * * *'
+
+jobs:
+  run-daily-job:
+    # The type of virtual machine to run the job on
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checks out your repository code so the job can access it
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Sets up the specific version of Python
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Step 3: Installs all the Python libraries from your requirements.txt file
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Runs your main Python script
+      - name: Run data pipeline script
+        # This is where we securely pass your secrets to the script as environment variables
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SENTINEL_INSTANCE_ID: ${{ secrets.SENTINEL_INSTANCE_ID }}
+          SENTINEL_CLIENT_ID: ${{ secrets.SENTINEL_CLIENT_ID }}
+          SENTINEL_CLIENT_SECRET: ${{ secrets.SENTINEL_CLIENT_SECRET }}
+        run: python main.py
