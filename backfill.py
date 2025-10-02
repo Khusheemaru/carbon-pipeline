@@ -15,23 +15,23 @@ print("Configuration Loaded.")
 
 def run_backfill():
     """
-    Fetches historical NDVI data for all Reforestation projects for the past 24 months.
+    Fetches historical NDVI data for Reforestation projects that haven't been filled yet.
     """
     print("--- Starting Historical Backfill ---")
     
     try:
-        # 1. Fetch only Reforestation projects from Supabase
-        response = supabase.table('projects').select('id, name, coordinates').eq('type', 'Reforestation').execute()
+        # --- UPDATED QUERY ---
+        # 1. Fetch Reforestation projects where historical_data_filled is false (or null).
+        response = supabase.table('projects').select('id, name, coordinates').eq('type', 'Reforestation').filter('historical_data_filled', 'is', 'false').execute()
+        
         if not response.data:
-            print("No Reforestation projects found.")
+            print("No new Reforestation projects to backfill.")
             return
 
         projects = response.data
-        print(f"Found {len(projects)} Reforestation projects to backfill.")
+        print(f"Found {len(projects)} new Reforestation projects to backfill.")
 
-        all_new_records = []
-
-        # 2. Loop through each project
+        # 2. Loop through each new project
         for project in projects:
             project_id = project['id']
             project_name = project['name']
@@ -42,14 +42,12 @@ def run_backfill():
                 continue
 
             print(f"\nBackfilling data for: {project_name}")
-
-            # --- CORRECTED DATE LOOP ---
+            all_new_records = []
+            
             # 3. Loop backwards in time, month by month, for the last 24 months
             current_date = datetime.date.today()
             for i in range(24):
-                # Set the time interval for the current month in the loop
                 start_of_month = current_date.replace(day=1)
-                # To get the end of the month, we go to the first day of the *next* month and subtract one day
                 end_of_month = (start_of_month + relativedelta(months=1)) - datetime.timedelta(days=1)
                 
                 start_date_str = start_of_month.strftime('%Y-%m-%d')
@@ -57,35 +55,29 @@ def run_backfill():
                 
                 print(f"Fetching data for period: {start_date_str} to {end_date_str}")
                 
-                # 4. Call our existing NDVI function for that historical period
+                # 4. Call our existing NDVI function
                 ndvi_value = get_ndvi_for_project(project_coords, start_date_str, end_date_str)
                 
                 if ndvi_value is not None:
-                    record = {
-                        "project_id": project_id,
-                        "recorded_at": end_date_str, # Save the data point at the end of the month
-                        "ndvi_value": ndvi_value
-                    }
+                    record = { "project_id": project_id, "recorded_at": end_date_str, "ndvi_value": ndvi_value }
                     all_new_records.append(record)
                 
-                # Move to the previous month for the next loop iteration
                 current_date = current_date - relativedelta(months=1)
 
-        # 5. Insert all the historical records into Supabase at once
-        if all_new_records:
-            print(f"\nInserting {len(all_new_records)} new historical records into the database...")
-            # Supabase python client has a limit of around 1500 rows per insert.
-            # We will chunk the data if we have too many records.
-            chunk_size = 1000
-            for i in range(0, len(all_new_records), chunk_size):
-                chunk = all_new_records[i:i + chunk_size]
-                insert_response = supabase.table('project_ndvi_data').insert(chunk).execute()
+            # 5. Insert all historical records for this specific project
+            if all_new_records:
+                print(f"\nInserting {len(all_new_records)} records for '{project_name}'...")
+                insert_response = supabase.table('project_ndvi_data').insert(all_new_records).execute()
+                
                 if insert_response.data:
-                    print(f"Successfully inserted chunk {i // chunk_size + 1}.")
+                    print(f"Successfully inserted data for '{project_name}'.")
+                    # --- NEW: Update the project's status flag to true ---
+                    print(f"Marking '{project_name}' as complete.")
+                    supabase.table('projects').update({'historical_data_filled': True}).eq('id', project_id).execute()
                 else:
-                    print(f"Failed to insert chunk. Response: {insert_response}")
-        else:
-            print("No new historical data was generated.")
+                    print(f"Failed to insert data for '{project_name}'. Response: {insert_response}")
+            else:
+                print(f"No new historical data was generated for '{project_name}'.")
             
     except Exception as e:
         print(f"A critical error occurred: {e}")
@@ -95,5 +87,4 @@ def run_backfill():
 
 # --- Entry point of the script ---
 if __name__ == "__main__":
-    # You will need to pip install python-dateutil for this script to work
     run_backfill()

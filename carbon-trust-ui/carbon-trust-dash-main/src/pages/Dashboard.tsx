@@ -1,6 +1,6 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { MatchingEngine, ESGProfile } from "../components/MatchingEngine";
 import { ProjectCard } from "../components/ProjectCard";
@@ -8,6 +8,7 @@ import { Project } from "@/types/project";
 import { Leaf } from "lucide-react";
 import { ethers } from "ethers";
 import CreditTokenABI from "../lib/CreditTokenABI.json";
+import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -97,6 +98,10 @@ export default function Dashboard() {
       <header className="border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-green-400">CarbonTrust AI</h1>
+          {/* --- NEW LINK TO CALCULATOR --- */}
+          <Link to="/calculator">
+            <Button variant="outline">Carbon Calculator</Button>
+          </Link>
         </div>
       </header>
 

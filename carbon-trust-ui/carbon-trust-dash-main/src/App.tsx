@@ -4,7 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "./lib/supabaseClient";
 import LoginPage from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
-import ProjectDetail from "./pages/ProjectDetail"; // Assuming you have this page
+import ProjectDetail from "./pages/ProjectDetail"; 
+import CarbonCalculator from "./pages/Calculator";
 
 function App() {
   const [session, setSession] = useState(null);
@@ -45,6 +46,11 @@ function App() {
         <Route
           path="/project/:id"
           element={session ? <ProjectDetail /> : <Navigate to="/" />}
+        />
+      
+      <Route
+          path="/calculator"
+          element={session ? <CarbonCalculator /> : <Navigate to="/" />}
         />
       </Routes>
     </BrowserRouter>
