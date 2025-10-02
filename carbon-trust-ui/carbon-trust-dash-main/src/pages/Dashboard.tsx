@@ -2,34 +2,39 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
-import { MatchingEngine, ESGProfile } from "../components/MatchingEngine"; // Import our new component
+import { MatchingEngine, ESGProfile } from "../components/MatchingEngine";
 import { ProjectCard } from "../components/ProjectCard";
 import { Project } from "@/types/project";
 import { Leaf } from "lucide-react";
+import { ethers } from "ethers";
+import CreditTokenABI from "../lib/CreditTokenABI.json";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true); // Set to true initially
+  const [loading, setLoading] = useState(true);
+  const [isMinting, setIsMinting] = useState(false);
 
+  // --- Add your deployed contract address here ---
+  const contractAddress = "0xe2845a07c6d5089ac86556d9f8453a677daeadc9";
+
+  // --- THIS IS THE CORRECT, FULLY RESTORED FUNCTION ---
   const fetchProjects = async (profile?: ESGProfile) => {
     setLoading(true);
+    setProjects([]); // Clear previous results
 
     const requestBody = {
-      // Pass the user's preferences, or a default object for the initial load
       preferences: profile || {
         riskAppetite: "Balanced",
         preferredRegion: "Any",
-        requiredCredits: 0,
-        prioritySDGs: [],
+        minimumCredits: 0,
+        prioritySDG_IDs: [],
       },
     };
 
     const { data, error } = await supabase.functions.invoke(
       "get-project-matches",
-      {
-        body: requestBody,
-      }
+      { body: requestBody }
     );
 
     if (error) {
@@ -41,7 +46,7 @@ export default function Dashboard() {
     setLoading(false);
   };
 
-  // Fetch initial data when the component loads
+  // This hook correctly fetches the initial data when the component loads
   useEffect(() => {
     fetchProjects();
   }, []);
@@ -49,6 +54,43 @@ export default function Dashboard() {
   const handleProjectClick = (projectId: string) => {
     navigate(`/project/${projectId}`);
   };
+
+  const handleMint = async () => {
+  if (typeof window.ethereum === 'undefined' || !contractAddress) {
+    return alert('Please install MetaMask and add the contract address.');
+  }
+  setIsMinting(true);
+  console.log("Minting process started...");
+
+  try {
+    // Step 1: Initialize provider, telling it to accept any network at first
+    const provider = new ethers.BrowserProvider(window.ethereum, "any");
+    console.log("Provider initialized.");
+
+    // Step 2: Request account access from MetaMask
+    await provider.send("eth_requestAccounts", []);
+    const signer = await provider.getSigner();
+    console.log("Signer obtained:", signer.address);
+
+    // Step 3: Create the contract instance connected to the signer
+    const creditTokenContract = new ethers.Contract(contractAddress, CreditTokenABI, signer);
+    console.log("Contract instance created. Sending transaction...");
+
+    // Step 4: Call the safeMint function
+    const transaction = await creditTokenContract.safeMint(signer.address, { gasLimit: 500000 });
+    console.log("Transaction sent. Hash:", transaction.hash);
+    
+    console.log("Waiting for transaction confirmation...");
+    await transaction.wait();
+    console.log("Transaction confirmed!");
+    
+    alert(`Successfully minted a new Carbon Credit Token!`);
+  } catch (error) {
+    console.error("MINTING FAILED:", error);
+    alert(`Minting failed. Reason: ${error.reason || error.message}. Check console for details.`);
+  }
+  setIsMinting(false);
+};
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -76,7 +118,16 @@ export default function Dashboard() {
                 : `${projects.length} projects match your criteria`}
             </p>
 
-            {/* This is the corrected grid layout */}
+            <div className="mb-6">
+              <button
+                onClick={handleMint}
+                disabled={isMinting}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500 disabled:cursor-not-allowed"
+              >
+                {isMinting ? "Minting..." : "Mint Test Credit"}
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {projects.map((project) => (
                 <ProjectCard

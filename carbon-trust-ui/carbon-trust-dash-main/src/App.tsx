@@ -43,7 +43,7 @@ function App() {
           element={session ? <Dashboard /> : <Navigate to="/" />}
         />
         <Route
-          path="/project/:projectId"
+          path="/project/:id"
           element={session ? <ProjectDetail /> : <Navigate to="/" />}
         />
       </Routes>
