@@ -1,57 +1,70 @@
 // src/App.tsx
-import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { supabase } from "./lib/supabaseClient";
-import LoginPage from "./pages/Index";
-import Dashboard from "./pages/Dashboard";
-import ProjectDetail from "./pages/ProjectDetail"; 
-import CarbonCalculator from "./pages/Calculator";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext'; // Import  Auth hook
+
+// Import page components
+import LoginPage from './pages/Index';
+import BuyerDashboard from './pages/BuyerDashboard';
+import AdminDashboard from './pages/AdminDashboard'; // Import  admin dashboard
+import ProjectDetail from './pages/ProjectDetail';
+import CarbonCalculator from './pages/Calculator';
+
+/**
+ * A component that acts as a gatekeeper after login,
+ * redirecting the user to the correct dashboard based on their role.
+ */
+const HomeRedirect = () => {
+  const { profile } = useAuth();
+
+  if (profile?.role === 'Platform Admin' || profile?.role === 'Aggregator') {
+    return <Navigate to="/admin" />;
+  }
+  
+  // Default to BuyerDashboard
+  return <Navigate to="/dashboard" />;
+};
 
 function App() {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { session, loading } = useAuth();
 
-  useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session);
-      setLoading(false);
-    };
-
-    getSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
+  // Show a loading state while the session and profile are being fetched
   if (loading) {
-    return <div>Loading...</div>; // Or a proper spinner component
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        Initializing...
+      </div>
+    );
   }
-
+  
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LoginPage />} />
+        {/* If not logged in, show the login page. If logged in, the HomeRedirect decides where to go. */}
+        
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={session ? <HomeRedirect /> : <Navigate to="/login" />}
+        />
+        {/* Protected, Role-Specific Routes */}
         <Route
           path="/dashboard"
-          element={session ? <Dashboard /> : <Navigate to="/" />}
+          element={session ? <BuyerDashboard /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/admin"
+          element={session ? <AdminDashboard /> : <Navigate to="/login" />}
         />
         <Route
           path="/project/:id"
-          element={session ? <ProjectDetail /> : <Navigate to="/" />}
+          element={session ? <ProjectDetail /> : <Navigate to="/login" />}
         />
-      
-      <Route
+        <Route
           path="/calculator"
-          element={session ? <CarbonCalculator /> : <Navigate to="/" />}
+          element={session ? <CarbonCalculator /> : <Navigate to="/login" />}
         />
+        {/* A fallback route for any unknown paths */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );

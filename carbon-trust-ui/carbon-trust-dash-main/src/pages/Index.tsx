@@ -25,7 +25,7 @@ export default function LoginPage() {
       password,
     });
     if (error) alert(error.error_description || error.message);
-    else if (data.session) navigate("/dashboard");
+    else if (data.session) navigate("/");
     setLoading(false);
   };
 
