@@ -8,6 +8,7 @@ import BuyerDashboard from './pages/BuyerDashboard';
 import AdminDashboard from './pages/AdminDashboard'; // Import  admin dashboard
 import ProjectDetail from './pages/ProjectDetail';
 import CarbonCalculator from './pages/Calculator';
+import MyPortfolio from "./pages/MyPortfolio";
 
 /**
  * A component that acts as a gatekeeper after login,
@@ -40,7 +41,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* If not logged in, show the login page. If logged in, the HomeRedirect decides where to go. */}
-        
+
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/"
@@ -58,6 +59,10 @@ function App() {
         <Route
           path="/project/:id"
           element={session ? <ProjectDetail /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/portfolio"
+          element={session ? <MyPortfolio /> : <Navigate to="/login" />}
         />
         <Route
           path="/calculator"

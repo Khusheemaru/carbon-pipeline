@@ -54,6 +54,11 @@ export default function Dashboard() {
     navigate(`/project/${projectId}`);
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login"); // Redirect to login page after logout
+  };
+
   
 
   return (
@@ -61,10 +66,18 @@ export default function Dashboard() {
       <header className="border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-green-400">CarbonTrust AI</h1>
-          {/* --- NEW LINK TO CALCULATOR --- */}
-          <Link to="/calculator">
-            <Button variant="outline">Carbon Calculator</Button>
-          </Link>
+          <nav className="flex items-center gap-4">
+            <Link to="/calculator">
+              <Button variant="outline">Carbon Calculator</Button>
+            </Link>
+            {/* --- NEW LINK TO PORTFOLIO --- */}
+            <Link to="/portfolio">
+              <Button variant="outline">My Portfolio</Button>
+            </Link>
+            <Button variant="destructive" onClick={handleLogout}>
+              Logout
+            </Button>
+          </nav>
         </div>
       </header>
 
@@ -86,7 +99,6 @@ export default function Dashboard() {
                 : `${projects.length} projects match your criteria`}
             </p>
 
-            
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {projects.map((project) => (
                 <ProjectCard
