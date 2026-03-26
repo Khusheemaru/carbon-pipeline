@@ -1,11 +1,10 @@
-// src/pages/Index.tsx (Improved Version with Demo Login)
+// src/pages/Index.tsx (Improved Version)
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useNavigate } from "react-router-dom";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
@@ -18,7 +17,7 @@ export default function LoginPage() {
     });
   }, [navigate]);
 
-  const handleLogin = async (event) => {
+  const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -30,7 +29,7 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  const handleSignUp = async (event) => {
+  const handleSignUp = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signUp({ email, password });
@@ -39,60 +38,57 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  const handleDemoLogin = async (role: "Buyer" | "Admin") => {
-    setDemoLoading(true);
-    const demoEmail = role === "Buyer" ? "buyer@demo.com" : "admin@demo.com";
-    const demoPassword = "demo123456";
-    const profileRole = role === "Buyer" ? "Buyer" : "Platform Admin";
+  // Demo Login Handler (auto-provisions if user doesn't exist)
+  const handleDemoLogin = async (demoEmail: string) => {
+    setLoading(true);
+    const demoPassword = "demoPassword123!"; // Strong enough for Supabase
+    
+    // First try to login
+    let { data, error } = await supabase.auth.signInWithPassword({
+      email: demoEmail,
+      password: demoPassword,
+    });
 
-    try {
-      // First, try to sign in
-      let { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: demoEmail,
-        password: demoPassword,
+    if (error && error.message.includes("Invalid login")) {
+      // User likely doesn't exist, try signing up
+      console.log(`Demo user ${demoEmail} not found, creating one...`);
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ 
+        email: demoEmail, 
+        password: demoPassword 
       });
-
-      // If sign-in fails (user doesn't exist), create the user
-      if (signInError) {
-        console.log("Demo user doesn't exist, creating...");
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: demoEmail,
-          password: demoPassword,
-        });
-
-        if (signUpError) {
-          alert(`Failed to create demo user: ${signUpError.message}`);
-          setDemoLoading(false);
-          return;
+      
+      if (signUpError) {
+        alert(`Auto-provisioning failed: ${signUpError.message}`);
+      } else {
+        // Assign role if it's the admin demo user
+        if (signUpData.user && demoEmail === "admin@example.com") {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .upsert({ user_id: signUpData.user.id, role: "Platform Admin" });
+          if (profileError) {
+             console.error("Failed to assign Platform Admin role:", profileError);
+          }
         }
 
-        signInData = signUpData;
-      }
-
-      // Now update/insert the profile with the correct role
-      if (signInData?.user) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .upsert({
-            user_id: signInData.user.id,
-            role: profileRole,
-          }, {
-            onConflict: "user_id"
-          });
-
-        if (profileError) {
-          console.error("Profile update error:", profileError);
+        // Signed up successfully. 
+        if (signUpData.session) {
+           navigate("/");
+        } else {
+           // Some setups require a manual sign in after sign up if autoConfirm is off
+           const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: demoEmail,
+              password: demoPassword,
+           });
+           if (signInData.session) navigate("/");
+           else alert("Created demo user but couldn't log in automatically. Check Supabase settings.");
         }
-
-        // Navigate to the appropriate dashboard
-        navigate(role === "Buyer" ? "/dashboard" : "/admin");
       }
-    } catch (error) {
-      console.error("Demo login error:", error);
-      alert("An error occurred during demo login.");
+    } else if (error) {
+       alert(`Demo login failed: ${error.message}`);
+    } else if (data.session) {
+      navigate("/");
     }
-
-    setDemoLoading(false);
+    setLoading(false);
   };
 
   return (
@@ -130,6 +126,7 @@ export default function LoginPage() {
               onClick={handleLogin}
               className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
               disabled={loading}
+              type="button"
             >
               {loading ? <span>Loading...</span> : <span>Login</span>}
             </button>
@@ -137,34 +134,32 @@ export default function LoginPage() {
               onClick={handleSignUp}
               className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
               disabled={loading}
+              type="button"
             >
               {loading ? <span>...</span> : <span>Sign Up</span>}
             </button>
           </div>
-        </form>
-
-        {/* Demo Login Section */}
-        <div className="pt-6 border-t border-gray-700">
-          <p className="text-center text-gray-400 text-sm mb-4">
-            Quick Demo Access (For Presentations)
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => handleDemoLogin("Buyer")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow-lg transition-all"
-              disabled={demoLoading}
-            >
-              {demoLoading ? <span>Loading...</span> : <span>🛒 Demo Buyer Login</span>}
-            </button>
-            <button
-              onClick={() => handleDemoLogin("Admin")}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded shadow-lg transition-all"
-              disabled={demoLoading}
-            >
-              {demoLoading ? <span>Loading...</span> : <span>👨‍💼 Demo Admin Login</span>}
-            </button>
+          
+          <div className="pt-4 border-t border-gray-700 space-y-4">
+             <p className="text-center text-xs text-gray-500 uppercase tracking-wider">Fast Access (Presentation Mode)</p>
+             <button
+                onClick={() => handleDemoLogin("demo@carbontrust.com")}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-lg transition-colors"
+                disabled={loading}
+                type="button"
+              >
+                {loading ? <span>...</span> : <span>Demo Login (Buyer)</span>}
+              </button>
+              <button
+                onClick={() => handleDemoLogin("admin@example.com")}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded shadow-lg transition-colors"
+                disabled={loading}
+                type="button"
+              >
+                {loading ? <span>...</span> : <span>Demo Login (Admin)</span>}
+              </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
