@@ -61,7 +61,7 @@ export default function LoginPage() {
         alert(`Auto-provisioning failed: ${signUpError.message}`);
       } else {
         // Assign role if it's the admin demo user
-        if (signUpData.user && demoEmail === "admin@example.com") {
+        if (signUpData.user && demoEmail === "admin@carbontrust.com") {
           const { error: profileError } = await supabase
             .from("profiles")
             .upsert({ user_id: signUpData.user.id, role: "Platform Admin" });
@@ -151,7 +151,7 @@ export default function LoginPage() {
                 {loading ? <span>...</span> : <span>Demo Login (Buyer)</span>}
               </button>
               <button
-                onClick={() => handleDemoLogin("admin@example.com")}
+                onClick={() => handleDemoLogin("admin@carbontrust.com")}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded shadow-lg transition-colors"
                 disabled={loading}
                 type="button"
